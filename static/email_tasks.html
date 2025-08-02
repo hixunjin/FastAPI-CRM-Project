@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>邮件任务列表</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      max-width: 960px;
+      margin: auto;
+      background-color: #f8f9fa;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 8px 16px;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #message {
+      margin-top: 10px;
+      color: #cc0000;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f1f1f1;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📨 邮件任务列表</h2>
+
+  <button onclick="loadTasks()">🔄 刷新列表</button>
+  <button onclick="location.href='email_task_create.html'">➕ 新建任务</button>
+
+  <div id="message"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>标题</th>
+        <th>标签</th>
+        <th>创建时间</th>
+        <th>总数</th>
+        <th>成功</th>
+        <th>失败</th>
+      </tr>
+    </thead>
+    <tbody id="taskTableBody"></tbody>
+  </table>
+
+  <script>
+    const token = localStorage.getItem("token");
+
+    const showMessage = (msg, color = 'red') => {
+      const msgDiv = document.getElementById('message');
+      msgDiv.textContent = msg;
+      msgDiv.style.color = color;
+    };
+
+    async function loadTasks() {
+      try {
+        const res = await fetch('/api/email_tasks/', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          showMessage("加载失败：" + (err.detail || JSON.stringify(err)));
+          return;
+        }
+
+        const tasks = await res.json();
+        const tbody = document.getElementById('taskTableBody');
+        tbody.innerHTML = '';
+
+        if (tasks.length === 0) {
+          showMessage("暂无任务", "gray");
+          return;
+        }
+
+        showMessage("共加载 " + tasks.length + " 条任务", "green");
+
+        tasks.forEach(t => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${t.id}</td>
+            <td>${t.title}</td>
+            <td>${t.tag || '-'}</td>
+            <td>${new Date(t.created_at).toLocaleString()}</td>
+            <td>${t.total}</td>
+            <td>${t.success}</td>
+            <td>${t.fail}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } catch (e) {
+        showMessage("请求异常：" + e.message);
+      }
+    }
+
+    loadTasks();
+  </script>
+
+</body>
+</html>

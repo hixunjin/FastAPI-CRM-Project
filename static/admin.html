@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>管理员主页</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #1e1e2f;
+      color: #f5f5f5;
+    }
+
+    h1 {
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    button {
+      background: #3f51b5;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      margin: 10px 10px 10px 0;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    button:hover {
+      background: #5c6bc0;
+      transform: scale(1.02);
+    }
+
+    button:active {
+      background: #3949ab;
+    }
+
+    #createUserForm {
+      display: none;
+      margin-top: 20px;
+      background: #2a2a3d;
+      padding: 20px;
+      border-radius: 10px;
+      animation: fadeIn 0.5s ease;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border: 1px solid #555;
+      background: #333;
+      color: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+      background: #2b2b3f;
+      border-radius: 8px;
+      overflow: hidden;
+      animation: fadeIn 1s ease;
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #444;
+      text-align: left;
+    }
+
+    th {
+      background-color: #3f3f5e;
+    }
+
+    #info {
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    #createUserMsg {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>管理员主页</h1>
+    <div id="info"></div>
+
+    <div style="margin-bottom: 20px;">
+      <button id="btnChangePassword">修改密码</button>
+      <button id="btnShowCreateUser">创建新用户</button>
+      <button onclick="location.href='customer.html'">客户管理</button>
+      <button onclick="location.href='email_tasks.html'">邮件推广</button>
+      <button onclick="location.href='blacklist.html'">黑名单管理</button>
+      <button id="btnLogout">登出</button>
+    </div>
+
+    <div id="createUserForm">
+      <h3>创建新用户</h3>
+      <input id="new_username" placeholder="用户名" />
+      <input id="new_password" type="password" placeholder="密码" />
+      <select id="new_role">
+        <option value="user">普通用户</option>
+        <option value="admin">管理员</option>
+      </select>
+      <button id="btnCreateUser">提交</button>
+      <div id="createUserMsg"></div>
+    </div>
+
+    <h3>所有用户</h3>
+    <table id="userTable">
+      <thead>
+        <tr><th>用户名</th><th>角色</th><th>操作</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+
+
+
+
+    import { request } from './request.js';
+
+    function checkRole() {
+      const role = localStorage.getItem("role");
+      if (role !== "admin") {
+        alert("权限不足，请登录管理员账号");
+        localStorage.clear();
+        location.href = "login.html";
+      }
+    }
+
+    function loadInfo() {
+      const username = localStorage.getItem("username") || "未知用户";
+      const role = localStorage.getItem("role") || "未知角色";
+      document.getElementById("info").textContent = `当前用户：${username}，角色：${role}`;
+    }
+
+    function logout() {
+      localStorage.clear();
+      location.href = "login.html";
+    }
+
+    function showCreateUser() {
+      const form = document.getElementById("createUserForm");
+      form.style.display = form.style.display === "none" ? "block" : "none";
+    }
+
+    async function createUser() {
+      const username = document.getElementById("new_username").value.trim();
+      const password = document.getElementById("new_password").value.trim();
+      const role = document.getElementById("new_role").value;
+      const msg = document.getElementById("createUserMsg");
+      msg.textContent = "";
+
+      if (!username || !password) {
+        msg.style.color = "red";
+        msg.textContent = "用户名和密码不能为空";
+        return;
+      }
+
+      try {
+        await request("/api/users/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, role })
+        });
+        msg.style.color = "lightgreen";
+        msg.textContent = "用户创建成功";
+        document.getElementById("new_username").value = "";
+        document.getElementById("new_password").value = "";
+        document.getElementById("new_role").value = "user";
+        loadUsers();
+      } catch (e) {
+        msg.style.color = "red";
+        msg.textContent = e.message;
+      }
+    }
+
+    async function loadUsers() {
+      try {
+
+
+
+        //调用Get请求接口，获取所有用户信息
+        const users = await request("/api/users/all");
+        const tbody = document.querySelector("#userTable tbody");
+        tbody.innerHTML = "";
+        users.forEach((user, index) => {
+          const row = document.createElement("tr");
+          row.style.animation = `fadeIn 0.3s ease ${(index * 0.05)}s forwards`;
+          row.innerHTML = `
+            <td>${user.username}</td>
+            <td>${user.role}</td>
+            <td>
+              <button onclick="resetPassword('${user.username}')">重置密码</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      } catch (e) {
+        alert("加载用户失败：" + e.message);
+      }
+    }
+
+    // 重置密码（挂到全局）
+    window.resetPassword = async function(username) {
+      const newPwd = prompt(`请输入用户 ${username} 的新密码：`);
+      if (!newPwd) return;
+
+      try {
+
+        // 调用POST请求接口，重置用户密码
+        await request(`/api/users/admin/change-password/${username}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            old_password: "admin_override",
+            new_password: newPwd
+          })
+        });
+        alert("密码修改成功");
+      } catch (e) {
+        alert("密码修改失败：" + e.message);
+      }
+    };
+
+    // 页面初始化
+    document.getElementById("btnLogout").addEventListener("click", logout);
+    document.getElementById("btnShowCreateUser").addEventListener("click", showCreateUser);
+    document.getElementById("btnCreateUser").addEventListener("click", createUser);
+    document.getElementById("btnChangePassword").addEventListener("click", () => {
+      location.href = "/static/change_password.html";
+    });
+
+    checkRole();
+    loadInfo();
+    loadUsers();
+  </script>
+</body>
+</html>

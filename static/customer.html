@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>客户管理</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #fff;
+    }
+    h2 {
+      margin-bottom: 15px;
+      color: #000;
+    }
+    input, select, button {
+      margin: 5px;
+      padding: 8px;
+      border-radius: 0;
+      border: 1px solid #000;
+    }
+    button {
+      background-color: #eee;
+      color: #000;
+      border: 1px solid #000;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background: #fff;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #ddd;
+    }
+    .form-inline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 15px;
+      gap: 10px;
+    }
+    .form-inline input[type="text"] {
+      flex: 1;
+      min-width: 150px;
+    }
+    #addForm {
+      margin-top: 10px;
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #000;
+      border-radius: 0;
+      display: none;
+      width: fit-content;
+    }
+  </style>
+</head>
+<body>
+  <h2>客户管理</h2>
+
+  <div class="form-inline">
+    <input id="search" placeholder="搜索名称" type="text" />
+    <input id="filterTag" placeholder="按标签筛选" type="text" />
+    <button id="searchBtn">查询</button>
+    <button id="addBtn">添加客户</button>
+    <input type="file" id="excelFile" accept=".xls,.xlsx" />
+    <button id="importBtn">导入Excel</button>
+  </div>
+
+  <div id="addForm">
+    <input id="new_name" placeholder="客户名称" />
+    <input id="new_email" placeholder="邮箱" />
+    <input id="new_tags" placeholder="标签（逗号分隔）" />
+    <button id="submitAddBtn">提交</button>
+  </div>
+
+  <table id="customerTable">
+    <thead>
+      <tr><th>名称</th><th>邮箱</th><th>标签</th><th>创建时间</th><th>操作</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script type="module">
+    import { request } from './request.js';
+
+    async function loadCustomers() {
+      const keyword = document.getElementById("search").value.trim();
+      const tag = document.getElementById("filterTag").value.trim();
+      const url = new URL("/api/customers/get_all_customers/", window.location.origin);
+      if (keyword) url.searchParams.append("keyword", keyword);
+      if (tag) url.searchParams.append("tag",   tag);
+
+      const customers = await request(url.toString());
+      const tbody = document.querySelector("#customerTable tbody");
+      tbody.innerHTML = "";
+      customers.forEach(c => {
+        const row = `<tr>
+          <td>${c.name}</td>
+          <td>${c.email}</td>
+          <td>${c.tags.join(", ")}</td>
+          <td>${new Date(c.created_at).toLocaleString()}</td>
+          <td>
+            <button class="edit-btn" data-id="${c.id}" data-name="${c.name}" data-tags="${c.tags.join(",")}">编辑</button>
+            <button class="delete-btn" data-id="${c.id}">删除</button>
+          </td>
+        </tr>`;
+        tbody.insertAdjacentHTML("beforeend", row);
+      });
+    }
+
+    function showAddForm() {
+      document.getElementById("addForm").style.display = "block";
+    }
+
+    async function addCustomer() {
+      const name = document.getElementById("new_name").value.trim();
+      const email = document.getElementById("new_email").value.trim();
+      const tags = document.getElementById("new_tags").value.split(",").map(t => t.trim()).filter(Boolean);
+
+      if (!name || !email) {
+        alert("请填写客户名称和邮箱");
+        return;
+      }
+
+      try {
+        await request("/api/customers/create_customers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, tags })
+        });
+        alert("添加成功");
+        document.getElementById("addForm").style.display = "none";
+        loadCustomers();
+      } catch (e) {
+        alert("添加失败：" + e.message);
+      }
+    }
+
+    async function updateCustomer(id, name, tags) {
+      try {
+        await request(`/api/customers/UpdateCustomer/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, tags })
+        });
+        loadCustomers();
+      } catch (e) {
+        alert("更新失败：" + e.message);
+      }
+    }
+
+    async function deleteCustomer(id) {
+      if (!confirm("确认删除该客户？")) return;
+      try {
+        await request(`/api/customers/delete/${id}`, { method: "DELETE" });
+        loadCustomers();
+      } catch (e) {
+        alert("删除失败：" + e.message);
+      }
+    }
+
+    async function importExcel() {
+      const fileInput = document.getElementById("excelFile");
+      if (!fileInput.files.length) {
+        alert("请先选择 Excel 文件");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      try {
+        const res = await fetch("/api/customers/import_excel", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + (localStorage.getItem("token") || "")
+          },
+          body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          alert(data.msg || "导入完成");
+          loadCustomers();
+        } else {
+          alert("导入失败：" + (data.detail || "未知错误"));
+        }
+      } catch (e) {
+        alert("导入出错：" + e.message);
+      }
+    }
+
+    document.getElementById("searchBtn").addEventListener("click", loadCustomers);
+    document.getElementById("addBtn").addEventListener("click", showAddForm);
+    document.getElementById("submitAddBtn").addEventListener("click", addCustomer);
+    document.getElementById("importBtn").addEventListener("click", importExcel);
+
+    document.querySelector("#customerTable tbody").addEventListener("click", (e) => {
+      if (e.target.classList.contains("edit-btn")) {
+        const id = e.target.dataset.id;
+        const name = e.target.dataset.name;
+        const tagsStr = e.target.dataset.tags;
+        const newName = prompt("修改名称：", name);
+        if (!newName) return;
+        const newTags = prompt("修改标签（逗号分隔）：", tagsStr);
+        const tags = newTags.split(",").map(t => t.trim()).filter(Boolean);
+        updateCustomer(id, newName, tags);
+      }
+
+      if (e.target.classList.contains("delete-btn")) {
+        const id = e.target.dataset.id;
+        deleteCustomer(id);
+      }
+    });
+
+    loadCustomers();
+  </script>
+</body>
+</html>

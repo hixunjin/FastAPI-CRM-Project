@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>用户主页</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #1e1e2f;
+      color: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+      padding: 20px 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+    }
+    button {
+      background: #3f51b5;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      margin: 10px 10px 10px 0;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+    button:hover {
+      background: #5c6bc0;
+      transform: scale(1.02);
+    }
+    button:active {
+      background: #3949ab;
+    }
+    #info {
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>用户主页</h1>
+    <div id="info"></div>
+
+    <div style="margin-bottom: 20px;">
+      <button id="btnChangePassword">修改密码</button>
+      <button onclick="location.href='customer.html'">客户管理</button>
+      <button onclick="location.href='email_tasks.html'">邮件推广</button>
+      <button onclick="location.href='blacklist.html'">黑名单管理</button>
+      <button id="btnLogout">登出</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { request } from './request.js';
+
+    function loadInfo() {
+      const username = localStorage.getItem("username") || "未知用户";
+      const role = localStorage.getItem("role") || "未知角色";
+      document.getElementById("info").textContent = `当前用户：${username}，角色：${role}`;
+    }
+
+    function checkLogin() {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("请先登录");
+        location.href = "login.html";
+      }
+    }
+
+    function logout() {
+      localStorage.clear();
+      location.href = "login.html";
+    }
+
+    // 页面初始化
+    document.getElementById("btnLogout").addEventListener("click", logout);
+    document.getElementById("btnChangePassword").addEventListener("click", () => {
+      location.href = "/static/change_password.html";
+    });
+
+    checkLogin();
+    loadInfo();
+  </script>
+</body>
+</html>

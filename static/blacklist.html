@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<title>黑名单管理</title>
+<style>
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    padding: 20px;
+    max-width: 700px;
+    margin: auto;
+    background-color: #f8f9fa;
+  }
+
+  h2 {
+    margin-bottom: 20px;
+    color: #333;
+  }
+
+  input[type="email"] {
+    padding: 10px;
+    width: 60%;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+
+  button {
+    padding: 10px 15px;
+    margin-left: 10px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  button:hover {
+    background-color: #0056b3;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+
+  th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f1f1f1;
+  }
+
+  #message {
+    margin-top: 15px;
+    font-weight: bold;
+    color: #cc0000;
+  }
+</style>
+</head>
+<body>
+
+<h2>黑名单邮箱管理</h2>
+
+<div>
+  <input id="emailInput" type="email" placeholder="输入邮箱地址" />
+  <button onclick="addEmail()">添加到黑名单</button>
+</div>
+
+<div id="message"></div>
+
+<table>
+  <thead><tr><th>邮箱</th><th>操作</th></tr></thead>
+  <tbody id="blacklistBody"></tbody>
+</table>
+
+<script>
+const token = localStorage.getItem("token");
+const messageDiv = document.getElementById("message");
+
+function showMessage(msg, color = "red") {
+  messageDiv.textContent = msg;
+  messageDiv.style.color = color;
+}
+
+async function loadBlacklist() {
+  try {
+    const res = await fetch('/api/blacklist/GetBlackEmail', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error("获取失败");
+    const list = await res.json();
+    const tbody = document.getElementById('blacklistBody');
+    tbody.innerHTML = '';
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${item.email}</td>
+        <td><button onclick="removeEmail('${item.email}')">删除</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    showMessage("获取黑名单失败：" + e.message);
+  }
+}
+
+async function addEmail() {
+  const email = document.getElementById('emailInput').value.trim();
+  if (!email) {
+    showMessage("请输入邮箱");
+    return;
+  }
+  try {
+    const res = await fetch('/api/blacklist/AddBlackEmail', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showMessage("添加失败：" + (err.detail || JSON.stringify(err)));
+      return;
+    }
+    showMessage("添加成功", "green");
+    document.getElementById('emailInput').value = '';
+    loadBlacklist();
+  } catch (e) {
+    showMessage("请求异常：" + e.message);
+  }
+}
+
+async function removeEmail(email) {
+  if (!confirm("确定删除该邮箱？")) return;
+  try {
+    const res = await fetch(`/api/blacklist/Delete/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showMessage("删除失败：" + (err.detail || JSON.stringify(err)));
+      return;
+    }
+    showMessage("删除成功", "green");
+    loadBlacklist();
+  } catch (e) {
+    showMessage("请求异常：" + e.message);
+  }
+}
+
+loadBlacklist();
+</script>
+
+</body>
+</html>
